@@ -23,6 +23,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -63,10 +64,10 @@ public class S3Sample {
          */
 
         AmazonS3 s3 = new AmazonS3Client();
-        Region usWest2 = Region.getRegion(Regions.US_WEST_2);
+        Region usWest2 = Region.getRegion(Regions.EU_CENTRAL_1);
         s3.setRegion(usWest2);
 
-        String bucketName = "my-first-s3-bucket-" + UUID.randomUUID();
+        String bucketName = "itsallaboutbuckets";
         String key = "MyObjectKey";
 
         System.out.println("===========================================");
@@ -74,26 +75,6 @@ public class S3Sample {
         System.out.println("===========================================\n");
 
         try {
-            /*
-             * Create a new S3 bucket - Amazon S3 bucket names are globally unique,
-             * so once a bucket name has been taken by any user, you can't create
-             * another bucket with that same name.
-             *
-             * You can optionally specify a location for your bucket if you want to
-             * keep your data closer to your applications or users.
-             */
-            System.out.println("Creating bucket " + bucketName + "\n");
-            s3.createBucket(bucketName);
-
-            /*
-             * List the buckets in your account
-             */
-            System.out.println("Listing buckets");
-            for (Bucket bucket : s3.listBuckets()) {
-                System.out.println(" - " + bucket.getName());
-            }
-            System.out.println();
-
             /*
              * Upload an object to your bucket - You can easily upload a file to
              * S3, or upload directly an InputStream if you know the length of
@@ -103,7 +84,12 @@ public class S3Sample {
              * specific to your applications.
              */
             System.out.println("Uploading a new object to S3 from a file\n");
+            long uploadStartTime = System.nanoTime();
             s3.putObject(new PutObjectRequest(bucketName, key, createSampleFile()));
+            long uploadTime = System.nanoTime() - uploadStartTime;
+            long uploadTimeInMillis = TimeUnit.MILLISECONDS.convert(uploadTime, TimeUnit.NANOSECONDS);
+            System.out.println("Upload time in milliseconds:" + uploadTimeInMillis + "\n");
+
 
             /*
              * Download an object - When you download an object, you get all of
@@ -118,27 +104,13 @@ public class S3Sample {
              * ETags, and selectively downloading a range of an object.
              */
             System.out.println("Downloading an object");
+            long startDownloadTime = System.nanoTime();
             S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
-            System.out.println("Content-Type: "  + object.getObjectMetadata().getContentType());
+            long downloadTime = System.nanoTime() - startDownloadTime;
+            long downloadTimeInMillis = TimeUnit.MILLISECONDS.convert(downloadTime, TimeUnit.NANOSECONDS);
+            System.out.println("Download time in milliseconds:" + downloadTimeInMillis + "\n");
             displayTextInputStream(object.getObjectContent());
 
-            /*
-             * List objects in your bucket by prefix - There are many options for
-             * listing the objects in your bucket.  Keep in mind that buckets with
-             * many objects might truncate their results when listing their objects,
-             * so be sure to check if the returned object listing is truncated, and
-             * use the AmazonS3.listNextBatchOfObjects(...) operation to retrieve
-             * additional results.
-             */
-            System.out.println("Listing objects");
-            ObjectListing objectListing = s3.listObjects(new ListObjectsRequest()
-                    .withBucketName(bucketName)
-                    .withPrefix("My"));
-            for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
-                System.out.println(" - " + objectSummary.getKey() + "  " +
-                        "(size = " + objectSummary.getSize() + ")");
-            }
-            System.out.println();
 
             /*
              * Delete an object - Unless versioning has been turned on for your bucket,
@@ -152,8 +124,6 @@ public class S3Sample {
              * deleted, so remember to delete any objects from your buckets before
              * you try to delete them.
              */
-            System.out.println("Deleting bucket " + bucketName + "\n");
-            s3.deleteBucket(bucketName);
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which means your request made it "
                     + "to Amazon S3, but was rejected with an error response for some reason.");
@@ -188,6 +158,7 @@ public class S3Sample {
         writer.write("!@#$%^&*()-=[]{};':',.<>/?\n");
         writer.write("01234567890112345678901234\n");
         writer.write("abcdefghijklmnopqrstuvwxyz\n");
+        writer.write(System.nanoTime()+"");
         writer.close();
 
         return file;
