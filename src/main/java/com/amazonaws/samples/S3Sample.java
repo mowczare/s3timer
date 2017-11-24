@@ -14,14 +14,7 @@
  */
 package com.amazonaws.samples;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -68,7 +61,7 @@ public class S3Sample {
         s3.setRegion(usWest2);
 
         String bucketName = "itsallaboutbuckets";
-        String key = "MyObjectKey";
+        String key = "bigfile";
 
         System.out.println("===========================================");
         System.out.println("Getting Started with Amazon S3");
@@ -84,11 +77,13 @@ public class S3Sample {
              * specific to your applications.
              */
             System.out.println("Uploading a new object to S3 from a file\n");
+            File f = createSampleFile();
             long uploadStartTime = System.nanoTime();
-            s3.putObject(new PutObjectRequest(bucketName, key, createSampleFile()));
+            s3.putObject(new PutObjectRequest(bucketName, key, f));
             long uploadTime = System.nanoTime() - uploadStartTime;
             long uploadTimeInMillis = TimeUnit.MILLISECONDS.convert(uploadTime, TimeUnit.NANOSECONDS);
-            System.out.println("Upload time in milliseconds:" + uploadTimeInMillis + "\n");
+            System.out.println("Upload throughput [b/s]:" + f.length()*1000/uploadTimeInMillis + "\n");
+            System.out.println("Upload time [ms]:" + uploadTimeInMillis + "\n");
 
 
             /*
@@ -106,18 +101,27 @@ public class S3Sample {
             System.out.println("Downloading an object");
             long startDownloadTime = System.nanoTime();
             S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
+            InputStream reader = new BufferedInputStream(object.getObjectContent());
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            OutputStream writer = new BufferedOutputStream(bytes);
+            int read = -1;
+            while ((read = reader.read() ) != -1) {
+                writer.write(read);
+            }
+            writer.flush();
+            writer.close();
+            reader.close();
+            object.close();
             long downloadTime = System.nanoTime() - startDownloadTime;
             long downloadTimeInMillis = TimeUnit.MILLISECONDS.convert(downloadTime, TimeUnit.NANOSECONDS);
-            System.out.println("Download time in milliseconds:" + downloadTimeInMillis + "\n");
-            displayTextInputStream(object.getObjectContent());
+            System.out.println("Download throughput [b/s]:" + f.length()*1000/downloadTimeInMillis + "\n");
+            System.out.println("Download time [ms]:" + downloadTimeInMillis + "\n");
 
 
             /*
              * Delete an object - Unless versioning has been turned on for your bucket,
              * there is no way to undelete an object, so use caution when deleting objects.
              */
-            System.out.println("Deleting an object\n");
-            s3.deleteObject(bucketName, key);
 
             /*
              * Delete a bucket - A bucket must be completely empty before it can be
@@ -149,19 +153,7 @@ public class S3Sample {
      * @throws IOException
      */
     private static File createSampleFile() throws IOException {
-        File file = File.createTempFile("aws-java-sdk-", ".txt");
-        file.deleteOnExit();
-
-        Writer writer = new OutputStreamWriter(new FileOutputStream(file));
-        writer.write("abcdefghijklmnopqrstuvwxyz\n");
-        writer.write("01234567890112345678901234\n");
-        writer.write("!@#$%^&*()-=[]{};':',.<>/?\n");
-        writer.write("01234567890112345678901234\n");
-        writer.write("abcdefghijklmnopqrstuvwxyz\n");
-        writer.write(System.nanoTime()+"");
-        writer.close();
-
-        return file;
+        return new File("file.txt");
     }
 
     /**
